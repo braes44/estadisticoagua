@@ -1,8 +1,38 @@
 function TestResultForm({ samplingPoints, newResult, setNewResult, addResult }) {
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (newResult.pointId && newResult.microbial && newResult.toc) {
+      const point = samplingPoints.find((p) => p.id === newResult.pointId);
+      if (point.waterType === 'purified') {
+        if (parseFloat(newResult.toc) > 500) {
+          alert('Error: TOC debe ser <500 ppb para agua purificada');
+          return;
+        }
+        if (parseFloat(newResult.microbial) > 100) {
+          alert('Error: Recuento microbiano debe ser <100 CFU/mL para agua purificada');
+          return;
+        }
+        if (parseFloat(newResult.conductivity) > 1.3) {
+          alert('Error: Conductividad debe ser <1.3 µS/cm para agua purificada');
+          return;
+        }
+      }
+      if (point.waterType === 'sterile') {
+        if (parseFloat(newResult.microbial) > 0) {
+          alert('Error: Recuento microbiano debe ser 0 CFU/mL para agua estéril');
+          return;
+        }
+      }
+      addResult(e);
+    } else {
+      alert('Por favor, completa todos los campos requeridos.');
+    }
+  };
+
   return (
     <div className="mb-8">
       <h2 className="text-xl font-semibold mb-2">Agregar Resultado de Prueba</h2>
-      <form onSubmit={addResult} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4">
         <select
           value={newResult.pointId}
           onChange={(e) => setNewResult({ ...newResult, pointId: e.target.value })}
