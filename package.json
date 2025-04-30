@@ -1,6 +1,7 @@
 {
   "name": "estadisticoagua",
   "version": "1.0.0",
+  "description": "",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
