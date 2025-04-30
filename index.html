@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aplicación de Control de Calidad del Agua</title>
+  <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.22.9/Babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    const App = () => {
+      // Estado para puntos de muestreo y resultados
+      const [samplingPoints, setSamplingPoints] = useState([]);
+      const [results, setResults] = useState([]);
+      const [newPoint, setNewPoint] = useState({ name: '', waterType: 'potable', sampler: '' });
+      const [newResult, setNewResult] = useState({
+        pointId: '',
+        date: new Date().toISOString().split('T')[0],
+        microbial: '',
+        toc: '',
+        ph: '',
+        conductivity: '',
+        nitrates: '',
+        heavyMetals: ''
+      });
+      const [graphType, setGraphType] = useState('line');
+      const [graphParam, setGraphParam] = useState('microbial');
+
+      // Cargar datos de localStorage
+      useEffect(() => {
+        const points = JSON.parse(localStorage.getItem('samplingPoints') || '[]');
+        const results = JSON.parse(localStorage.getItem('results') || '[]');
+        setSamplingPoints(points);
+        setResults(results);
+      }, []);
+
+      // Guardar datos en localStorage
+      useEffect(() => {
+        localStorage.setItem('samplingPoints', JSON.stringify(samplingPoints));
+        localStorage.setItem('results', JSON.stringify(results));
+      }, [samplingPoints, results]);
+
+      // Agregar nuevo punto de muestreo
+      const addSamplingPoint = (e) => {
+        e.preventDefault();
+        if (newPoint.name && newPoint.sampler) {
+          setSamplingPoints([...samplingPoints, { id: Date.now(), ...newPoint }]);
+          setNewPoint({ name: '', waterType: 'potable', sampler: '' });
+        }
+      };
+
+      // Agregar nuevo resultado
+      const addResult = (e) => {
+        e.preventDefault();
+        if (newResult.pointId && newResult.microbial && newResult.toc) {
+          setResults([...results, { id: Date.now(), ...newResult }]);
+          setNewResult({
+            pointId: '',
+            date: new Date().toISOString().split('T')[0],
+            microbial: '',
+            toc: '',
+            ph: '',
+            conductivity: '',
+            nitrates: '',
+            heavyMetals: ''
+          });
+        }
+      };
+
+      // Preparar datos para gráficos
+      const getGraphData = () => {
+        const labels = results
+          .filter(r => r.pointId === newResult.pointId)
+          .map(r => r.date);
+        const data = results
+          .filter(r => r.pointId === newResult.pointId)
+          .map(r => parseFloat(r[graphParam]) || 0);
+        return {
+          labels,
+          datasets: [{
+            label: graphParam === 'microbial' ? 'Recuento Microbiano' :
+                   graphParam === 'toc' ? 'TOC' :
+                   graphParam === 'ph' ? 'pH' :
+                   graphParam === 'conductivity' ? 'Conductividad' :
+                   graphParam === 'nitrates' ? 'Nitratos' : 'Metales Pesados',
+            data,
+            borderColor: 'rgb(75, 192, 192)',
+            tension: 0.1
+          }]
+        };
+      };
+
+      return (
+        <div className="container mx-auto p-4">
+          <h1 className="text-2xl font-bold mb-4">Control de Calidad del Agua</h1>
+
+          {/* Formulario para Puntos de Muestreo */}
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold mb-2">Agregar Punto de Muestreo</h2>
+            <form onSubmit={addSamplingPoint} className="space-y-4">
+              <input
+                type="text"
+                placeholder="Nombre del Punto"
+                value={newPoint.name}
+                onChange={(e) => setNewPoint({ ...newPoint, name: e.target.value })}
+                className="border p-2 rounded w-full"
+              />
+              <select
+                value={newPoint.waterType}
+                onChange={(e) => setNewPoint({ ...newPoint, waterType: e.target.value })}
+                className="border p-2 rounded w-full"
+              >
+                <option value="potable">Potable</option>
+                <option value="purified">Purificada</option>
+                <option value="sterile">Estéril</option>
+              </select>
+              <input
+                type="text"
+                placeholder="Nombre del Muestreador"
+                value={newPoint.sampler}
+                onChange={(e) => setNewPoint({ ...newPoint, sampler: e.target.value })}
+                className="border p-2 rounded w-full"
+              />
+              <button type="submit" className="bg-blue-500 text-white p-2 rounded">
+                Agregar Punto
+              </button>
+            </form>
+          </div>
+
+          {/* Formulario para Resultados */}
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold mb-2">Agregar Resultado de Prueba</h2>
+            <form onSubmit={addResult} className="space-y-4">
+              <select
+                value={newResult.pointId}
+                onChange={(e) => setNewResult({ ...newResult, pointId: e.target.value })}
+                className="border p-2 rounded w-full"
+              >
+                <option value="">Seleccionar Punto de Muestreo</option>
+                {samplingPoints.map(point => (
+                  <option key={point.id} value={point.id}>
+                    {point.name} ({point.waterType})
+                  </option>
+                ))}
+              </select>
+              <input
+                type="date"
+                value={newResult.date}
+                onChange={(e) => setNewResult({ ...newResult, date: e.target.value })}
+                className="border p-2 rounded w-full"
+              />
+              <input
+                type="number"
+                placeholder="Recuento Microbiano (CFU/mL)"
+                value={newResult.microbial}
+                onChange={(e) => setNewResult({ ...newResult, microbial: e.target.value })}
+                className="border p-2 rounded w-full"
+              />
+              <input
+                type="number"
+                placeholder="TOC (ppb)"
+                value={newResult.toc}
+                onChange={(e) => setNewResult({ ...newResult, toc: e.target.value })}
+                className="border p-2 rounded w-full"
+              />
+              <input
+                type="number"
+                placeholder="pH"
+                step="0.1"
+                value={newResult.ph}
+                onChange={(e) => setNewResult({ ...newResult, ph: e.target.value })}
+                className="border p-2 rounded w-full"
+              />
+              <input
+                type="number"
+                placeholder="Conductividad (µS/cm)"
+                value={newResult.conductivity}
+                onChange={(e) => setNewResult({ ...newResult, conductivity: e.target.value })}
+                className="border p-2 rounded w-full"
+              />
+              <input
+                type="number"
+                placeholder="Nitratos (mg/L)"
+                value={newResult.nitrates}
+                onChange={(e) => setNewResult({ ...newResult, nitrates: e.target.value })}
+                className="border p-2 rounded w-full"
+              />
+              <input
+                type="number"
+                placeholder="Metales Pesados (ppb)"
+                value={newResult.heavyMetals}
+                onChange={(e) => setNewResult({ ...newResult, heavyMetals: e.target.value })}
+                className="border p-2 rounded w-full"
+              />
+              <button type="submit" className="bg-blue-500 text-white p-2 rounded">
+                Agregar Resultado
+              </button>
+            </form>
+          </div>
+
+          {/* Sección de Gráficos */}
+          <div>
+            <h2 className="text-xl font-semibold mb-2">Visualizar Resultados</h2>
+            <div className="flex space-x-4 mb-4">
+              <select
+                value={graphType}
+                onChange={(e) => setGraphType(e.target.value)}
+                className="border p-2 rounded"
+              >
+                <option value="line">Gráfico de Líneas</option>
+                <option value="bar">Gráfico de Barras</option>
+              </select>
+              <select
+                value={graphParam}
+                onChange={(e) => setGraphParam(e.target.value)}
+                className="border p-2 rounded"
+              >
+                <option value="microbial">Recuento Microbiano</option>
+                <option value="toc">TOC</option>
+                <option value="ph">pH</option>
+                <option value="conductivity">Conductividad</option>
+                <option value="nitrates">Nitratos</option>
+                <option value="heavyMetals">Metales Pesados</option>
+              </select>
+              <select
+                value={newResult.pointId}
+                onChange={(e) => setNewResult({ ...newResult, pointId: e.target.value })}
+                className="border p-2 rounded"
+              >
+                <option value="">Seleccionar Punto para Gráfico</option>
+                {samplingPoints.map(point => (
+                  <option key={point.id} value={point.id}>
+                    {point.name} ({point.waterType})
+                  </option>
+                ))}
+              </select>
+            </div>
+            {newResult.pointId && results.filter(r => r.pointId === newResult.pointId).length > 0 && (
+              <canvas id="resultsChart"></canvas>
+            )}
+          </div>
+        </div>
+      );
+
+      // Renderizar gráfico
+      useEffect(() => {
+        if (newResult.pointId && results.filter(r => r.pointId === newResult.pointId).length > 0) {
+          const ctx = document.getElementById('resultsChart').getContext('2d');
+          new Chart(ctx, {
+            type: graphType,
+            data: getGraphData(),
+            options: {
+              scales: {
+                y: { beginAtZero: true },
+                x: { title: { display: true, text: 'Fecha' } }
+              }
+            }
+          });
+        }
+      }, [newResult.pointId, results, graphType, graphParam]);
+    };
+
+    ReactDOM.render(<App />, document.getElementById('root'));
+  </script>
+</body>
+</html>
