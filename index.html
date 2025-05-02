@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Control de Calidad de Agua</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    table, th, td { border: 1px solid black; border-collapse: collapse; padding: 5px; }
+    table { margin-top: 10px; width: 100%; }
+    input, select { margin: 5px; }
+    .alerta { background-color: #fdd; }
+  </style>
+</head>
+<body>
+  <h2>Resultados de Pruebas de Agua</h2>
+
+  <form id="formulario">
+    Fecha: <input type="date" id="fecha">
+    Parámetro:
+    <select id="parametro">
+      <option value="TOC">TOC</option>
+      <option value="Conductividad">Conductividad</option>
+      <option value="Microbiología">Microbiología</option>
+    </select>
+    Valor: <input type="number" step="any" id="valor">
+    Tipo de Agua:
+    <select id="tipo">
+      <option value="purificada">Purificada</option>
+      <option value="esteril">Estéril</option>
+    </select>
+    Muestreado por: <input type="text" id="muestreador">
+    Observaciones: <input type="text" id="observaciones">
+    <button type="submit">Agregar</button>
+  </form>
+
+  <canvas id="grafico" width="600" height="300"></canvas>
+
+  <table id="tabla">
+    <thead>
+      <tr><th>Fecha</th><th>Parámetro</th><th>Valor</th><th>Tipo de Agua</th><th>Muestreador</th><th>Observaciones</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+  <button onclick="exportarCSV()">Exportar CSV</button>
+
+  <script>
+    const datos = [];
+    const limites = {
+      purificada: { TOC: 500, Conductividad: 1.3, Microbiología: 100 },
+      esteril: { TOC: 500, Conductividad: 1.3, Microbiología: 10 }
+    };
+
+    const ctx = document.getElementById('grafico').getContext('2d');
+    let chart;
+
+    document.getElementById('formulario').addEventListener('submit', e => {
+      e.preventDefault();
+      const fecha = document.getElementById('fecha').value;
+      const parametro = document.getElementById('parametro').value;
+      const valor = parseFloat(document.getElementById('valor').value);
+      const tipo = document.getElementById('tipo').value;
+      const muestreador = document.getElementById('muestreador').value;
+      const obs = document.getElementById('observaciones').value;
+
+      datos.push({ fecha, parametro, valor, tipo, muestreador, obs });
+      actualizarTabla();
+      actualizarGrafico();
+    });
+
+    function actualizarTabla() {
+      const tbody = document.querySelector('#tabla tbody');
+      tbody.innerHTML = '';
+      datos.forEach(d => {
+        const tr = document.createElement('tr');
+        if (d.valor > limites[d.tipo][d.parametro]) tr.classList.add('alerta');
+        tr.innerHTML = `<td>${d.fecha}</td><td>${d.parametro}</td><td>${d.valor}</td><td>${d.tipo}</td><td>${d.muestreador}</td><td>${d.obs}</td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function actualizarGrafico() {
+      const parametroActual = document.getElementById('parametro').value;
+      const tipoActual = document.getElementById('tipo').value;
+      const filtrados = datos.filter(d => d.parametro === parametroActual && d.tipo === tipoActual);
+      const fechas = filtrados.map(d => d.fecha);
+      const valores = filtrados.map(d => d.valor);
+      const limite = limites[tipoActual][parametroActual];
+
+      if (chart) chart.destroy();
+
+      chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: fechas,
+          datasets: [
+            {
+              label: parametroActual,
+              data: valores,
+              borderColor: 'blue',
+              fill: false
+            },
+            {
+              label: 'Límite USP',
+              data: new Array(fechas.length).fill(limite),
+              borderColor: 'red',
+              borderDash: [5, 5],
+              fill: false
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
+    }
+
+    function exportarCSV() {
+      let csv = 'Fecha,Parámetro,Valor,Tipo de Agua,Muestreador,Observaciones\n';
+      datos.forEach(d => {
+        csv += `${d.fecha},${d.parametro},${d.valor},${d.tipo},${d.muestreador},${d.obs}\n`;
+      });
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      saveAs(blob, 'datos_agua.csv');
+    }
+  </script>
+</body>
+</html>
